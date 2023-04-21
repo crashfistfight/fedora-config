@@ -27,6 +27,8 @@ local packages=(
   "virt-manager"
   "gnome-disk-utility"
   "syncthing"
+  "iwl7260-firmware"
+  "pciutils"
 )
   sudo dnf install --assumeyes "${packages[@]}"
 }
@@ -55,6 +57,7 @@ flatpak_() {
     "org.gnome.Calendar"
     "org.gnome.Calculator"
     "org.gnome.Photos"
+    "org.gnome.eog"
   )
   sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
   sudo flatpak install  --noninteractive --assumeyes --or-update "${flatpaks[@]}"
