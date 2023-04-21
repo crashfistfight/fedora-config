@@ -29,6 +29,7 @@ local packages=(
   "syncthing"
   "iwl7260-firmware"
   "pciutils"
+  "gnome-backgrounds"
 )
   sudo dnf install --assumeyes "${packages[@]}"
 }
