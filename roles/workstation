@@ -1,0 +1,123 @@
+#! /usr/bin/env bash
+
+# shellcheck source=/dev/null
+# shellcheck disable=SC2034
+
+workstation_main_() {
+  source "$PWD"/../roles/default
+  
+  workstation_packages_
+  flatpak_
+  flatpak_automatic_
+  gnome_
+  syncthing_
+}
+
+#
+
+workstation_packages_() {
+local packages=(
+  "flatpak"
+  "dbus-x11"
+  "gnome-shell"
+  "gnome-console"
+  "nautilus"
+  "xdg-user-dirs"
+  "xdg-user-dirs-gtk"
+  "virt-manager"
+  "gnome-disk-utility"
+  "syncthing"
+)
+  sudo dnf install --assumeyes "${packages[@]}"
+}
+
+flatpak_() {
+  sudo dnf install --assumeyes flatpak dbus-x11
+
+  local flatpaks=(
+    "com.github.tchx84.Flatseal"
+    "com.spotify.Client"
+    "com.yubico.yubioath"
+    "org.gnome.Totem"
+    "org.gimp.GIMP"
+    "org.gnome.Firmware"
+    "org.gnome.seahorse.Application"
+    "org.mozilla.firefox"
+    "org.onlyoffice.desktopeditors"
+    "org.signal.Signal"
+    "org.chromium.Chromium"
+    "com.bitwarden.desktop"
+    "org.freedesktop.Platform.ffmpeg-full/x86_64/21.08"
+    "com.visualstudio.code-oss"
+    "org.gnome.Geary"
+    "org.gnome.Evince"
+    "org.gnome.Logs"
+    "org.gnome.Calendar"
+    "org.gnome.Calculator"
+    "org.gnome.Photos"
+  )
+  sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+  sudo flatpak install  --noninteractive --assumeyes --or-update "${flatpaks[@]}"
+
+  sudo flatpak override --socket=wayland --env=MOZ_ENABLE_WAYLAND=1 org.mozilla.firefox
+}
+
+flatpak_automatic_() {
+  sudo tee /etc/systemd/system/flatpak-automatic.service > /dev/null <<EOF
+[Unit]
+Description=Flatpak - run flatpak update --assumeyes
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=dbus-launch flatpak update --noninteractive --assumeyes
+Restart=on-failure
+RestartSec=60s
+EOF
+
+  sudo tee /etc/systemd/system/flatpak-automatic.timer > /dev/null <<EOF
+[Unit]
+Description=Flatpak - trigger for flatpak-automatic.service
+
+[Timer]
+OnBootSec=1h
+OnUnitInactiveSec=1d
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now flatpak-automatic.timer
+}
+
+gnome_() {
+  sudo systemctl enable gdm
+
+  sudo systemctl set-default graphical.target
+
+  gsettings set org.gnome.desktop.interface show-battery-percentage true
+  gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true
+  gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true
+  gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll false
+  gsettings set org.gnome.desktop.privacy disable-microphone true
+  gsettings set org.gnome.desktop.wm.keybindings close "['<Super>q']"
+  gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
+  gsettings set org.gnome.settings-daemon.plugins.color night-light-temperature '2159'
+}
+
+syncthing_() {
+  sudo systemctl enable --now syncthing@"$USER".service
+
+  sudo tee /etc/sysctl.d/40-max-user-watches.conf > /dev/null <<EOF
+fs.inotify.max_user_watches=524288
+EOF
+
+  sudo firewall-cmd --add-service=syncthing --permanent --quiet
+  sudo firewall-cmd --reload
+}
+
+workstation_main_

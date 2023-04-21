@@ -1,0 +1,146 @@
+#! /usr/bin/env bash
+
+# shellcheck source=/dev/null
+# shellcheck disable=SC2154
+
+# ssh_port=
+# ssh_auth_keys=('')
+# email_smtp_server=''
+# email_from=''
+# email_user=''
+# email_password=''
+# email_sendto=''
+# podman_user=""
+# podman_auto_updates="" | "true"
+
+
+container_host_main_() {
+  source "$PWD"/../roles/default
+
+  container_host_packages
+  ssh_
+  msmtp_
+  podman_
+}
+
+#
+
+container_host_packages() {
+  "msmtp"
+  "s-nail"
+}
+
+ssh_() {
+  mkdir --mode=700 "$HOME"/.ssh
+
+  tee "$HOME"/.ssh/authorized_keys > /dev/null <<EOF
+$(printf "%s\n" "${ssh_auth_keys[@]}")
+EOF
+  chmod 600 "$HOME"/.ssh/authorized_keys
+
+  sudo tee /etc/ssh/sshd_config.d/10-custom.conf > /dev/null <<EOF
+Port ${ssh_port} 
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+X11Forwarding no
+EOF
+
+  sudo semanage port -a -t ssh_port_t -p tcp "$ssh_port"
+
+  sudo mkdir /etc/systemd/system/sshd.socket.d
+  sudo tee /etc/systemd/system/sshd.socket.d/override.conf > /dev/null <<EOF
+[Socket]
+ListenStream=
+ListenStream=${ssh_port}
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl disable --now sshd.service
+  sudo systemctl enable --now sshd.socket
+
+  sudo firewall-cmd --add-port="$ssh_port"/tcp --permanent --quiet
+  sudo firewall-cmd --remove-service=ssh --permanent --quiet
+  sudo firewall-cmd --reload
+}
+
+msmtp_() {
+  sudo tee /etc/msmtprc > /dev/null <<EOF
+# Set default values for all following accounts.
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        ~/.msmtp.log
+
+# account
+account        default
+host           ${email_smtp_server}
+port           587
+tls_starttls   on
+from           ${email_from}
+user           ${email_user}
+password       ${email_password}
+
+# Use aliases
+aliases        /etc/aliases
+EOF
+
+  sudo tee /etc/aliases > /dev/null <<EOF
+mailer-daemon:  postmaster
+postmaster:     root
+decode:         root
+root:           ${email_sendto}
+default:        ${email_sendto}
+EOF
+
+  echo 1 | sudo alternatives --config mta
+}
+
+podman_() {
+  local podman_path="/home/$podman_user"
+
+  sudo useradd -m "$podman_user"
+  sudo loginctl enable-linger "$podman_user"
+
+  sudo mkdir --parents "$podman_path"{/volumes,/.config/containers,/.config/systemd/user}
+
+  sudo tee "$podman_path"/.config/containers/containers.conf > /dev/null <<EOF
+tz = "local"
+EOF
+
+  if [ "$podman_auto_updates" = "true" ]; then
+    sudo tee "$podman_path"/.config/systemd/user/podman-auto-update.service > /dev/null <<EOF
+[Unit]
+Description=Podman auto-update service
+Documentation=man:podman-auto-update(1)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman auto-update
+ExecStartPost=/usr/bin/podman image prune -f
+
+[Install]
+WantedBy=default.target
+EOF
+
+  sudo tee "$podman_path"/.config/systemd/user/podman-auto-update.timer > /dev/null <<EOF
+[Unit]
+Description=Podman auto-update timer
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  fi
+
+  sudo chown -R "$podman_user":"$podman_user" "$podman_path"
+}
+
+container_host_main_

@@ -1,0 +1,141 @@
+#! /usr/bin/env bash
+
+# shellcheck source=/dev/null
+# shellcheck disable=SC2154
+
+# hostname=
+# auto_update_type="default" | "security"
+
+default_main_() {
+  default_packages_
+  bash_prompt_
+  snapper_
+  hostnamectl_
+  dnf_automatic_
+  snapper_
+  vim_
+}
+
+#
+
+default_packages_() {
+    local packages=(
+    "htop"
+    "bash-completion"
+    "sqlite"
+    "policycoreutils-python-utils"
+    "podman"
+    "buildah"
+    "rsync"
+    "toolbox"
+    "dnf-automatic"
+    "vim"
+    "snapper"
+  )
+  sudo dnf install --assumeyes "${packages[@]}"
+}
+
+bash_prompt_() {
+  sudo tee /etc/profile.d/prompt.sh > /dev/null <<EOF
+#! /usr/bin/env bash
+
+export PS1="[\[\e[31m\]\u\[\e[m\]@\h] \[\e[01;31m\]:\[\e[m\]\[\e[01;31m\]:\[\e[m\] \W \[\e[01;31m\]>\[\e[m\] "
+EOF
+}
+
+snapper_() {
+  if [ ! -d /home/.snapshots ]; then
+    sudo btrfs subvolume create /home/.snapshots
+  fi
+
+  sudo mkdir --parents /etc/snapper/configs
+  sudo tee /etc/snapper/configs/home > /dev/null <<EOF
+# subvolume to snapshot
+SUBVOLUME="/home"
+
+# filesystem type
+FSTYPE="btrfs"
+
+# create hourly snapshots
+TIMELINE_CREATE="yes"
+
+# cleanup hourly snapshots after some time
+TIMELINE_CLEANUP="yes"
+
+# limits for timeline cleanup
+TIMELINE_MIN_AGE="1800"
+TIMELINE_LIMIT_HOURLY=24
+TIMELINE_LIMIT_DAILY="7"
+TIMELINE_LIMIT_WEEKLY="0"
+TIMELINE_LIMIT_MONTHLY="0"
+TIMELINE_LIMIT_YEARLY="0"
+
+# cleanup empty pre-post-pairs
+EMPTY_PRE_POST_CLEANUP="yes"
+EOF
+
+  sudo sed --in-place "s@^SNAPPER_CONFIGS=.*@SNAPPER_CONFIGS=\"home\"@" /etc/sysconfig/snapper
+
+  sudo mkdir /etc/systemd/system/snapper-cleanup.timer.d
+  sudo tee /etc/systemd/system/snapper-cleanup.timer.d/override.conf > /dev/null <<EOF
+[Timer]
+OnBootSec=
+OnUnitActiveSec=
+OnCalendar=hourly
+Persistent=true
+EOF
+
+  sudo mkdir /etc/systemd/system/snapper-timeline.timer.d
+  sudo tee /etc/systemd/system/snapper-timeline.timer.d/override.conf > /dev/null <<EOF
+[Timer]
+Persistent=True
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now snapper-cleanup.timer snapper-timeline.timer
+}
+
+hostnamectl_() {
+    sudo hostnamectl hostname "$hostname"
+}
+
+dnf_automatic_() {
+  sudo dnf install --assumeyes dnf-automatic
+
+  sudo sed --in-place "s@^upgrade_type = .*@upgrade_type = ${auto_update_type:=default}@" /etc/dnf/automatic.conf
+
+  sudo sed --in-place "s@^apply_updates = .*@apply_updates = yes@" /etc/dnf/automatic.conf
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now dnf-automatic.timer
+}
+
+vim_() {
+  sudo tee /etc/vimrc > /dev/null <<EOF
+set autoindent
+set autoread
+set autowrite
+set expandtab
+set hidden
+set ignorecase
+set incsearch
+set laststatus=2
+set linebreak
+set list listchars=tab:▸\ ,trail:·
+set nofoldenable
+set nojoinspaces
+set number
+set path+=**
+set printoptions=paper:A4,syntax:n,number:y
+set shiftwidth=4
+set showbreak=↪\
+set splitbelow
+set splitright
+set statusline=\(%n\)\ %<%.99f\ %y\ %w%m%r%=%-14.(%l,%c%V%)\ %P
+set tabstop=4
+set textwidth=120
+set wrapscan
+EOF
+}
+
+default_main_

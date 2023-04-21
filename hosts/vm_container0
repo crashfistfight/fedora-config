@@ -1,0 +1,30 @@
+#! /usr/bin/env bash
+
+# shellcheck source=/dev/null
+# shellcheck disable=SC2034
+
+host_main_() {
+  hostname="$(basename "$0")"
+  auto_update_type="default"
+  ssh_port="60022"
+  ssh_auth_keys=(
+  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJUESoA/Z+r3a3yAT46p7k9b7Jq04BVsvz9vHG4tqan1 rico@x395'
+)
+  buildah_user="buildah"
+  buildah_build_source_repo=''
+  buildah_login_user=''
+  buildah_login_passwd=''
+  buildah_login_registry="quay.io"
+  buildah_push_repo='rtmp'
+  email_smtp_server=''
+  email_from=''
+  email_user=''
+  email_password=''
+  email_sendto=''
+  podman_user="podman"
+  podman_auto_updates="true"
+
+  source "$PWD"/../roles/container_host
+}
+
+host_main_
