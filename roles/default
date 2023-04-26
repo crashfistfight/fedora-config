@@ -100,8 +100,6 @@ hostnamectl_() {
 }
 
 dnf_automatic_() {
-  sudo dnf install --assumeyes dnf-automatic
-
   sudo sed --in-place "s@^upgrade_type = .*@upgrade_type = ${auto_update_type:=default}@" /etc/dnf/automatic.conf
 
   sudo sed --in-place "s@^apply_updates = .*@apply_updates = yes@" /etc/dnf/automatic.conf
