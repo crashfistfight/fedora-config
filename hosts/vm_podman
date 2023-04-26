@@ -18,7 +18,7 @@ host_main_() {
   podman_user="podman"
   podman_auto_updates="true"
 
-  source "$PWD"/../roles/container_host
+  source "$PWD"/../roles/server
 }
 
 host_main_
