@@ -26,8 +26,11 @@ server_main_() {
 #
 
 server_packages() {
+  local packages=(
   "msmtp"
   "s-nail"
+  )
+  sudo dnf install --assumeyes "${packages[@]}"
 }
 
 ssh_() {
