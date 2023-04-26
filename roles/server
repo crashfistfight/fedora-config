@@ -14,10 +14,10 @@
 # podman_auto_updates="" | "true"
 
 
-container_host_main_() {
+server_main_() {
   source "$PWD"/../roles/default
 
-  container_host_packages
+  server_packages
   ssh_
   msmtp_
   podman_
@@ -25,7 +25,7 @@ container_host_main_() {
 
 #
 
-container_host_packages() {
+server_packages() {
   "msmtp"
   "s-nail"
 }
@@ -143,4 +143,4 @@ EOF
   sudo chown -R "$podman_user":"$podman_user" "$podman_path"
 }
 
-container_host_main_
+server_main_
