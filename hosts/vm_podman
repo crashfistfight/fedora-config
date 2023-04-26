@@ -5,17 +5,11 @@
 
 host_main_() {
   hostname="$(basename "$0")"
-  auto_update_type="default"
+  auto_update_type="security"
   ssh_port="60022"
   ssh_auth_keys=(
   'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJUESoA/Z+r3a3yAT46p7k9b7Jq04BVsvz9vHG4tqan1 rico@x395'
 )
-  buildah_user="buildah"
-  buildah_build_source_repo=''
-  buildah_login_user=''
-  buildah_login_passwd=''
-  buildah_login_registry="quay.io"
-  buildah_push_repo='rtmp'
   email_smtp_server=''
   email_from=''
   email_user=''
